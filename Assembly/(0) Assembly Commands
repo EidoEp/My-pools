@@ -1,0 +1,682 @@
+(*) Assembly Commands
+
+
+###################### General Commands ######################
+
+
+----------------------------------------------------------------
+
+# mov	
+
+	mov <DESTINATION>, <SOURCE>		- Copies a value from 'source' to 'destination'.
+
+								- Allowed copies for 'mov':
+
+							  		* mov register, register
+							  			- A 'mov' from register to register must be with identical memory size (8 bit, 16 bit etc.), if the size won't match, you'll get an error.
+							  			- You can't do a direct 'mov' between two Segment Registers [cs, ds, ss, es], also, cs can never be set as the 'destination' of a copy.
+
+							  		* mov register, constant
+							  			- A 'mov' from constant to register must be with identical memory size (8 bit, 16 bit etc.), if the size won't match, you'll get an error.							  	
+							  			
+							  		* mov memory, register
+							  			- Examples:
+							  				mov [1], ax 	; Direct addressing
+											mov [Var], ax 	; Another form of direct addressing, using a variable
+											mov [bx], ax 	; Indirect addressing
+											mov [bx+1], ax 	; Indexed addressing
+
+									* mov register, memory
+										- In the same manner as coping from a register to memory, but the opperands are opposite.
+										- Examples:
+											mov ax, [1]
+											mov ax, [Var]
+											mov ax, [bx]
+											mov ax, [bx+2]
+
+							  		* mov memory, constant
+							  			- As implies, example:
+							  				mov [bx], 5
+							  				mov [byte ptr bx], 5
+							  				mov [word ptr bx], 5
+							  				mov [dword ptr bx], 5
+
+----------------------------------------------------------------
+
+# offset 						
+
+	mov <REGISTER>, OFFSET <VARIABLE-NAME>		- It actually means “address” and is a way of handling the overloading of the 'mov' instruction.
+	push offset <PARAMETER>							
+												- 'offest' example:
+													mov bx, offset ArrayName	; Setting the memory address of 'ArrayName' in the 'bx' register.
+													mov al, [bx]				; Using this form of code writing with 'offest' enables us to better use all of the values avilable in an array and not just one of them.
+																				; By simply adding Dec values to 'bx' we can get an value in the array we need.
+
+----------------------------------------------------------------
+
+# LEA
+
+	lea <REGISTER>, [<VARIABLE-NAME>]		- Load Effective Address, an improved method (In performance) to get the memory address of a variable (Similar to 'offset') to be assigned to a register.
+	-- OR --								  We must use 'lea' when the needed memory address is avilable at "run time only".
+	lea <REGISTER>, <VARIABLE-NAME>
+
+											- 'lea' examples:
+												lea ebx, [LocalVar]		; Load effective address of LocalVar into 'ebx'
+												lea ebx, LocalVar		; Same functionality as mentioned above.
+
+----------------------------------------------------------------
+
+# word ptr / byte ptr
+
+	mov <DESTINATION>, [byte ptr <VARIABLE-NAME>+<Int>]			- Points to a memory address that dosen't have the same amount of bits correlating with it, a sort of a forced "casting".
+	-- OR --													  For more details, check the "Arrays" code page.
+	mov <DESTINATION>, [word ptr <VARIABLE-NAME>+<Int>]
+
+----------------------------------------------------------------
+
+# xchg
+
+	xchg register, register 	-	Exchanges between the values off 2 registers, saves using multiple 'mov' commands.
+
+----------------------------------------------------------------
+
+# equ
+
+	Var equ memory 				-	Substitute the value of the relevant variable (Label) with another value that can be either a 'memory' or 'constant'.
+	Var equ constant 			-	'equ' is comftorble to use when using the "Pass By Value" method for parameters.
+
+----------------------------------------------------------------
+
+# xlat
+
+	mov bx, offset Cipher		-	xlat is reponsible to "give" us back the expected value from an LUT, depending on the value copied to the 'al' register.
+	mov al, 'a'						The output from the will be copied to the 'al' register.
+	xlat						-	For a detailed example: http://www.expertsmind.com/questions/explain-xlat-instruction-with-help-of-example-30194487.aspx
+
+----------------------------------------------------------------
+
+# nop
+
+	nop							-	No operation, used when we need to fill a memory space with a legitimate action and we don't wany any actuall action to occur.
+								-	In some cases, it can also be used to interupt the runing of the code in critical sections before it resumes.
+								-	For more info - https://en.wikipedia.org/wiki/NOP_(code)
+
+----------------------------------------------------------------
+
+# movsw
+
+	Enable us to efficently copy data from one area of memory to the other.
+	In order to use this command, the ffollowing commands must also be included;
+
+	# std / cld		-	The 'std' command enables the direction command, while 'cld' disable it.
+	# rep 			-	Repeat, set before the 'movsw' will run a number of times, according to the value set in 'cx'.
+
+	For more info - http://www.expertsmind.com/questions/movswmovsb-string-manipulation-instruction-microprocessor-30117321.aspx
+
+----------------------------------------------------------------
+
+# int
+
+	int operand 	-	Use an interrupt function in your code, ann interrupt funnction is also called an Interrupt Service Routine (ISR).
+						DOS (Microsoft) and BIOS (Intel) are a set of interrupt funnctions developed by the relevant companies.
+
+					-	int 0h -> Triggered when a value is being divided by 0 or for any abnormal behaviour.
+					-	int 1h -> Used mainly in debugging mode, runs only a single command line and then stops.
+					-	int 3h -> Used when we run our code untill a certain breakpoint we set, the code will stop runing once reaching the breakpoint. 
+
+					-	int 21h	->	Used to trigger OS functions (ISR).
+
+						-	'ah' is being set before this command is being used with the value '21h', it can indicate on the use off a spcific funnction in the relevant interrupt.
+
+							* For all of the functions the can be used, see- https://en.wikipedia.org/wiki/DOS_API
+							
+							mov ah, 1h 		->	Receives a keyboard letter input, the ASCII code for Enter must also be applied.
+							mov ah, 2h		->	Prints a keyboard letter to the screen (dl).
+							mov ah, 9h		->	Prints a keyboard string to the screen, the string must end with '$' (dx).
+							mov ah, 0Ah		->	Receives a keyboard string input (dx), the ASCII code for Enter must also be applied.
+							mov ah, 25h		->	Used to input code to the IVT, 'al' will contain the interrupt number and the ISR offset in 'ds:dx'.
+							mov ah, 0Ch		->	Used for printing color, the following registers are with the parameters;
+													* 'al' -> Represents the VGA color (Red, green and blue).
+													* 'bl' -> Represents the page, should be valued as 0.
+													* 'cx' -> The coordinates for the 'X' axis.
+													* 'dx' -> The coordinates for the 'Y' axis.
+							mov ah, 4Ch		->	Used to release all the memory used by the runing code and closing all the files that we opened by it (ax).
+							mov ah, 2Ch		->	Used to read the current time on the system closck ('ch'=hrs, 'cl'=mins, 'dh'=secs, 'dl'=MilSecs).
+							mov ah, 2Dh		->	Used to write the current time of the system clock ('ch'=hrs, 'cl'=mins, 'dh'=secs, 'dl'=MilSecs).
+							mov ah, 3Dh		->	Used to open a file, 'al' indicates on the purpose ('0'=Read, '1'=Write, '2'=Read&Write).
+												'ds:dx' indicates on the file name, the name must end with a zero => Filename db 'file.txt',0
+												At the end of the interrupt run the 'cf' flag will trigger and the 'ax' will get a value:
+													* '2'  -> File Not Found.
+													* '5'  -> Too many open files.
+													* '12' -> No permission to use the file.
+							mov ah, 3Fh		->	Used to read a file, should be used after we were able to open a file.
+												The following register assist in the command:
+													* 'bx' -> The filehandle we got from DOS at the opening of the file.
+													* 'cx' -> The number of bytes we would like to read.
+													* 'dx' -> Indicates on the buffer (Array) to which the data will be copied to.
+															  'dx' must be equal or above the size of bytes we want to read.
+													* 'ax' -> Willeither contain the number of bytes read if the code ran successfully or an error message in a case it didn't.
+							mov ah, 3Eh		->	Used to close a file, the interrupt needs to receive the file handle on 'bx'.
+													* For example;
+
+														proc CloseFile
+															mov ah, 3Eh
+															mov bx, [filehandle]
+															int 21h
+															ret
+														endp CloseFile
+
+							mov ah, 3Ch		-> Used for creating a file.
+							mov ah, 41h		-> Used for deleting a file.
+							mov ah, 42h 	-> Used for moving a pointer in the file.
+
+
+						-	For printing a letter to the screen we will use the following commands:
+
+								mov dl, 'X' 	;	Same as: mov dl, 58h
+								mov ah, 2
+								int 21h
+
+						-	For printing a string to the screen we will use the following commands:
+
+								message db 'Hello World', 10, 13,'$'
+								mov dx, offset message
+								mov ah, 9
+								int 21h
+
+							10 -> Indicates the system to start a new line.
+							13 -> Indicates the system to start from the begining off a row.
+
+----------------------------------------------------------------
+
+# in / out
+
+	in ax, port 	<-- OR ---> 	in al, port 			- in - Used for copying data from a port.
+	in ax, dx	  	<-- OR --->		in al, dx 				- out - Used for writing data to a port.
+	out port, ax 	<-- OR ---> 	out port, al 			- For both commands you can use only the 'al' and 'ax' registers.
+	out dx, ax 		<-- OR ---> 	out dx, al 				  You can only used a 'db' or 'dw' values.
+															- There are 2 ways to these commands;
+																1. Directly, you write the port number- Can only be done if the number is between 0 to 255.
+																2. Indirectly, in cases we want to use a port number above 255, we'll use 'dx' instead of a number.
+
+															- Examoples for 'in' / 'out';
+
+																- Using a port number between 0 to 259:
+
+																	in al, 61h			;	Eead the status of the port.
+																	or al, 00000011b	;	Changing some bit.
+																	out 61h, al 		;	Copy the value in 'al' back to the port.
+
+																- Using a port number above 250:
+
+																	mov dx, 300h
+																	in al, dx
+
+----------------------------------------------------------------
+
+
+###################### Arithmetic Commands ######################
+
+
+----------------------------------------------------------------
+
+# add
+
+	add dest, src ; dest = dest + src 		- As implies, the command sums the value in 'src' and 'dest' and placing it in 'dest'.
+											- The following are all the avilable uses for the command;
+
+												1. add ax, bx		->	ax = ax+bx		;	add register, register
+												2. add ax, [var1]	->	ax = ax+[var1]	;	add register, memory
+												3. add ax, 2		->	ax = ax+2		;	add register, constant
+												4. add [var1], ax	->	var1 = var1+ax	;	add memory, register
+												5. add [var1], 2	->	var1 = var1+2	;	add memory, constant
+
+											- All of the calculations are advised to be done using the 'ax' register.
+											- You can use 8 bit or 16 bit registers.
+
+----------------------------------------------------------------
+
+# sub
+
+	sub dest, src ; dest = dest – sub		- As implies, the command substract the value in 'src' from 'dest' and placing it in 'dest'.
+											- The following are all the avilable uses for the command;
+
+												1. sub ax, bx		->	ax = ax-bx		;	sub register, register
+												2. sub ax, [var1]	->	ax = ax-var1	;	sub register, memory
+												3. sub ax, 2		->	ax = ax-2		;	sub register, constant
+												4. sub [var1], ax 	->	var1 = var1-ax	;	sub memory, register
+												5. sub [var1], 2	->	var1 = var1-2	;	sub memory, constant
+
+----------------------------------------------------------------
+
+# inc / dec
+
+	inc dest ; dest = dest + 1				- inc - Increases the 'dest' value by 1 (+1).
+											- The following are all the avilable uses for the command;
+
+												1. inc ax 			-> ax = ax+1		;	inc register
+												2. inc [var1]		-> var1 = var1+1	;	inc memory
+
+	-- OR --
+
+	dec dest ; dest = dest - 1				- dec - Decreases the 'dest' value by 1 (-1).
+											- The following are all the avilable uses for the command;
+
+												1. dec ax 			-> ax = ax-1		;	dec register
+												2. dec [var1]		-> var1 = var1-1	;	dec memory
+
+----------------------------------------------------------------
+
+# mul / imul
+
+	mul src ; ax = al * src 				- mul - Multiplies two unsigned (Only positive) variables
+	-- OR --
+	imul src ; ax = al * src				- imul - Multiplies two signed (Positive or negative) variables
+
+
+											For both commands;
+
+											1. When you multipl two 8 bit variables the result can be a 16 bit variable.
+											   For example;
+
+											   	bl= 10h, al= 0ABh	=>	mul bl	=>	0AB0h	=>	ax; ah= 0Ah, al= 0B0h
+
+											   In a case of multiplying an 8 bit variable, the assembler will copy the result to 'ax'.
+
+
+											2. When you multiply 16 bit variables, the result can be a 32 bit variable.
+											   For example;
+
+											    bx= 1010h, ax= 0AB0h  =>  mul bx  => 0ABAB00h	=>	ax= 0AB00h, dx= 0ABh
+
+											   In a case of multiplying a 16 bit variable, the assembler will copy the low 16 bit to 'ax' and the high 16 bit to 'dx'.
+
+
+											3. The following are all the avilable uses for the commands (Examples in 'mul' but can be in 'imul');
+
+												3.1.	mul bl			->	ax= al*bl			;	mul register(8 bit)
+												3.2.	mul bx 			->	dx:ax= ax*bx 		;	mul register(16 bit)
+												3.3.	mul [ByteVar] 	->	ax= al*ByteVar		;	mul memory(8 bit)
+												3.4.	mul [WordVar]	->	dx:ax= ax*WordVar	;	mul memory(16 bit)
+
+----------------------------------------------------------------
+
+# div / idiv
+
+	div src ; al = ax / src (ah stores the remainder)			- div - Divides two unsigned (Only positive) variables.
+	-- OR --
+	idiv src ; al = ax / src (ah stores the remainder)			- idiv - Divides two signed (Positive or negative) variables.
+
+
+																For both commands;
+
+																1. 	When you divide an 8 bit variable, the command divides 'ax' to its 8 bit values.
+																	In 'al' the result is saved, 'ah' saves the remainder if there is one.
+											   						For example;
+
+											   						bl= 2h, al= 7h	=>	div bl	=>	al=3, ah=1
+
+											   					2.	When you divide a 16 bit variable, the command divides the result in a 32 bit format.
+											   						In 'ax' the result is saved, 'dx' saves the remainder if there is one.
+											   						For example;
+
+											   						bx= 2h, ax= 7h	=>	div bx  =>	ax=3, dx=1
+
+											   					3.	It's not possible to divide a 8 bit value with an 8 bit value.
+											   						The same is applied with 16 bit.
+
+											   					4.	Depending on the bit size (8 or 16) you wish to divide with, you'll need to
+											   						make sure 'ah' (8 bit) or 'dx' (16 bit) values are zero. If not, you'll get the wrong results.
+											   						The 'mov' command can help with making sure the above values are set to zero.
+
+											   					5.	The following are all the avilable uses for the commands (Examples in 'div' but can be in 'idiv');
+
+											   						5.1.	div bl		->	al= ax div bl	;	div register(8 bit)
+											   												ah= ax mod bl
+
+											   						5.2.	div bx 		->	ax= dx:ax div bx 	;	div register(16 bit)
+											   												dx= dx:ax mod bx
+
+											   						5.3.	div [ByteVar]	->	al= ax div ByteVar	;	div memory(8 bit)
+											   													ah= ax mod ByteVar
+
+											   						5.4.	div [WordVar]	->	ax= dx:ax div WordVar	;	div memory(16 bit)
+											   													dx=	dx:ax mod WordVar
+
+----------------------------------------------------------------
+
+# neg
+
+	neg dest ; dest = 0 – dest 			- neg - Receives a variable and negates its value.
+										- The following are all the avilable uses for the command;
+
+											1. neg al 			->	al= 0-al			->	neg register(8 bit)
+											2. neg ax 			->	ax= 0-ax			->	neg register(16 bit)
+											3. neg [ByteVar]	->	ByteVar= 0-ByteVar	->	neg memory(8 bit)
+											4. neg [WordVar]	->	WordVar= 0-WordVar	->	neg memory(16 bit)
+
+----------------------------------------------------------------
+
+
+###################### Logical Commands ######################
+
+
+----------------------------------------------------------------
+
+# and / or / xor
+
+	The following is all the avilable uses for the commands 'and', 'or' and 'xor';
+
+		-	The syntax are;
+
+			1. and dest, src 	;	dest= dest and src 	;	AND  1	0
+ 															 1 	 1	0
+	 														 0	 0	0
+
+
+			2. or dest, src 	;	dest= dest or src 	;	 OR  1	0
+ 															 1 	 1	1
+	 														 0	 1	0
+
+
+			3. xor dest, src 	;	dest= dest xor src 	;	XOR  1	0
+ 															 1 	 0	1
+	 														 0	 1	0
+
+	 		   Also, since 'xor' opcode is shorter then 'mov', we'll use it in order to set
+	 		   registers with the value of zero in order to increase efficency.
+
+		-	The formats (Examples in 'and' but can also be in 'or' and 'xor');
+
+			1. and register, register
+			2. and memory, register
+			3. and register, memory
+			4. and register, constant
+			5. and memory, constant
+
+----------------------------------------------------------------
+
+# not
+
+	not dest 	;	dest= not dest 				- Simply changes all of the bits for the relevant variable to their opposite value ; 	NOT  
+ 																																	  	 1   0	
+	 																																  	 0	 1	
+
+												- The following are all the avilable uses for the command;
+
+													1. not register
+													2. not memory
+
+----------------------------------------------------------------
+
+
+#################### Shift Position Commands ####################
+
+
+----------------------------------------------------------------
+
+# shl
+
+	shl moved, mover			- shl - Shift left, moves the relevant value to the left the number of times it was set for the command.
+								- The "mover" value can be either a constant or the register 'cl'.
+								- The following are all the avilable uses for the command;
+
+									1.	shl register, const
+									2.	shl	register, cl
+									3.	shl	memory, const
+									4.	shl memory, cl
+
+								- For each 1 "movement", the bits are moving one step to the left.
+								- For 1 "movement" a bit with the value of 0 is entered from the right and the OF (Overflow Flag) flag is set (value of 1).
+								- For a "movement" of N bits you input N zeroes from the right, if the relevant operand becomes zero- The ZF (Zero Flag) flag will be set.
+								- The lasy bit going out from the left will be entered to the CF (Carry Flag) flag. 
+								- The SF (Sign Flag) flag will get the value of the most left bit.
+								- The PF (Parity Flag) flag will be set with the value of 1 if there is an even number of 1 bits in the lower 8 bytes of the operand.
+
+----------------------------------------------------------------
+
+# shr
+
+	shr moved, mover 			- shr - Shift right, moves the relevant value to the right the number of times it was set for the command.
+								- The "mover" value can be either a constant or the register 'cl'.
+								- The following are all the avilable uses for the command;
+
+									1.	shr register, const
+									2.	shr	register, cl
+									3.	shr	memory, const
+									4.	shr memory, cl
+
+								- For each 1 "movement", the bits are moving one step to the right.
+								- For 1 "movement" a bit with the value of 0 is entered from the left and the OF (Overflow Flag) flag will get the most left value of the operand.
+								- For a "movement" of N bits you input N zeroes from the left, if the relevant operand becomes zero- The ZF (Zero Flag) flag will be set.
+								- The lasy bit going out from the right will be entered to the CF (Carry Flag) flag. 
+								- The SF (Sign Flag) flag will get the value of the most left bit, which will always be 0.
+								- The PF (Parity Flag) flag will be set with the value of 1 if there is an even number of 1 bits in the lower 8 bytes of the operand.
+
+
+----------------------------------------------------------------
+
+%%%%% Common uses of shl / shr %%%%%
+
+1. shl - Can be used to multiply values by the power of 2.
+2. shr - Can be used to divide values by the power of 2.
+3. Both 'shl' and 'shr' are used in a LFSR encryption - Search online about it.
+4. Both 'shl' and 'shr' are used in data compression.
+
+----------------------------------------------------------------
+
+
+#################### Conditional Commands ####################
+
+
+----------------------------------------------------------------
+
+# jmp
+	
+						- Junps to a diffrent section in the code, can occur with or without a condition.
+						- Near jump - When the offset (Memory address) we wish to jump to is located on the same segment our program is currently on.
+						- Far jump - When we wish to jump to an offset that's located in a segment that our program is not currently runing.
+						  For example;
+
+						  	jmp cs:offset 	=> 	jmp cs:000A
+
+						- Instaed of using the actual offset we would like to use with 'jmp', we can set a Label- A name that represents the meaning of the jump.
+						  Any label name can be set as long as; 
+
+						  	1. It doesn't have spaces in it. 
+						  	2. It doesn't start with a number.
+						  	3. It doesn't named like a register (ax, bx, etc.)
+
+						- You can't use the same label name for two diffrent sets of code.
+
+----------------------------------------------------------------
+
+# cmp
+
+	cmp operand1, operand2		-	Compares between two values (Substracting the values), if the ZF flag is set with 1 the two values are equal.
+								-	For any negative result of the comparison, the CF and SF flags will trigger and have the value of 1.
+								-	The following are all the avilable uses for the command;
+
+										1. cmp al, bl			->	cmp register, register
+										2. cmp ax, [WordVar]	->	cmp register, memory
+										3. cmp [WordVar], cx	->	cmp memory, register
+										4. cmp ax, 5			->	cmp register, constant
+										5. cmp [ByteVar], 5		->	cmp memory, constant
+	
+								-	The following are the diffrent kind of jumps after a compare;
+
+										1. Jump if operand1 is greater then operand2			->	'jg' - Signed ; 'ja' - Unsigned
+										2. Jump if operand1 is lower then operand2				->	'jl' - Signed ; 'jb' - Unsigned
+										3. Jump if operand1 and operand2 are equal				->	'je' - Signed and Unsigned
+										4. Jump if operand1 and operand2 are not equal			->	'jne' - Signed and Unsigned
+										5. Jump if operand1 is greater or equal to operand2		->	'jge' - Signed ; 'jae' - Unsigned
+										6. Jump if operand1 is lower or equal to operand2		->	'jle' - Signed ; 'jbe' - Unsigned
+
+----------------------------------------------------------------
+
+# loop
+
+						-	As with all loops commands, trhe loop will run untill the condition set wit 'cmp' is met.
+							For example;
+
+								xor cx, cx
+								mov cl, TimesToPrintX
+								cmp cx, 0
+								je ExitLoop
+								PrintX:
+									... some code
+									loop PrintX
+								ExitLoop
+								... some code
+
+						-	For nested loops we can't use 'cx' for setting the counter for two loops, instead we'll need to use another register.
+							For example;
+							
+								mov bx, 10
+								LoopA:
+									mov cx, 5
+									LoopB:
+										... some code
+									loop LoopB
+								loop LoopA
+
+						-	The assmebler assigns 16 bit to 'jmp' that represents the jumping range and 8 bit size of range for 'loop' and 'cmp' jumps.
+							There are several ways to bypass this matter;
+
+							1. Don't exceed the avilable jumping range when creating your code.
+							2. Jump to a closer location (In range) and then jump to your desired location.
+							3. Change the conditional jump to an unconditional jump.
+
+----------------------------------------------------------------
+
+
+#################### Stack related Commands ####################
+
+
+----------------------------------------------------------------
+
+# STACK
+
+	STACK constant		- Creates a stack with the specified size.
+						  For example;
+
+						  STACK 100h 	->	Creates a stack of 256 bytes.
+
+----------------------------------------------------------------
+
+# push
+
+	push operand 		-	Inputing a value to a stack.
+						-	The value of 'sp' will always decrease by 2 when using the command 	->	sp= sp-2
+						-	You can use 'push' only with a WORD variable (16 bit).
+						- 	The value of the operand will be copied to address ss:sp
+						-	In a push of a 16 bit value ('ax'), the lower part will always enter the stack first ('al').
+						-	The following are the diffrent kind of jumps after a compare;
+
+							1. push register
+							2. push constant
+							3. push memory
+
+----------------------------------------------------------------
+
+# pop
+
+	pop operand 		- Extracting a value from a stack (FIFO).
+						- The value of 'sp' will always increase by 2 when using the command 	->	sp= sp+2
+						- After extracting a value from a stack, the value in the relevant memory address is not deleted. Only the 'sp' value is changing.
+						- You can use 'push' only with a WORD variable (16 bit).
+						- The value of the operand will be copied to address ss:sp
+						- The following are the diffrent kind of jumps after a compare;
+
+							1. pop register
+							2. pop memory
+
+----------------------------------------------------------------
+
+
+#################### Function related Commands ####################
+
+
+----------------------------------------------------------------
+
+# proc
+
+	proc ProcedureName		- Used to create a function
+
+----------------------------------------------------------------
+
+# ret
+
+	ret value(Optional) 	- Used to return the caller of the function the processed result.
+							- The commands "reads" from ss:sp the memory address it needs to return to.
+							- When the command is being initiated, the 'ip' (Instruction Pointer) receives the memory address of where the call to the function was made from.
+							- The 'sp' register will also change once the 'ret' command is triggered, increasing by 2 (Using FAR, it will increase by 4).
+							- When we add a value next to our 'ret' command, the 'sp' will increase also with that amount 	->	(2 OR 4[FAR]) + value
+
+----------------------------------------------------------------
+
+# endp
+
+	endp ProcedureName		- Used to close a function
+
+
+		*	All of the variables created/set in a function are local (Not global).
+		*	Functions are created either in the begining of the CODESEG section or in the end of it.
+
+----------------------------------------------------------------
+
+# call
+
+	call ProcedureName		- Used to "call" a function, sendinng to it variables if needed.
+							  The funnction is activated and in its end, provides an output.
+							- When a call is being initiated, the 'ip' (Instruction Pointer) receives the memory address of the start of the function.
+							- The 'sp' register will also change once the 'call' command is triggered, diminishing by 2 (Using FAR, it will diminish by 4).
+							- The memory address the function will need to return to is copied to ss:sp
+
+----------------------------------------------------------------
+
+# NEAR / FAR functions
+
+	proc ProcedureName far						- 'far' is meant to be used when we want to call a function that's not located in the CODESEG of the code we are currently running on.
+	proc ProcedureName near						- 'near' is meant to be used when we want to call a function that's located in the CODESEG of the code we are currently running on.
+												- The default set for a functionn that's being created is 'near'.
+												- When using 'far' the assembler will add a - 'push cs'. this line is meant to copy and input the register value to the stack ('ss'). 
+
+----------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

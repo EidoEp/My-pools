@@ -1,0 +1,346 @@
+(*) Assembly Important Notes
+
+* Not every register can have access to data in the memory, we will use 'di', 'si' and 'bx' for getting the data, and use in other registers will cause an error.
+  Examples;
+
+	mov ax, [bx]
+	mov [bx], ax
+
+	mov ax, [bx+2]
+	mov [bx+2], ax
+
+	mov ax, [bx+si]
+	mov ax, [bx+di]
+	mov [bx+si], ax
+	mov [bx+di], ax
+
+	mov ax, [bx+si+2]
+	mov ax, [bx+di+2]
+	mov [bx+si+2], ax
+	mov [bx+di+2], ax
+
+----------------------------------------------------------------
+
+* Type Override - Will trigger when we are using the 'mov' command, but the result can be more then one option.
+  For example, using;
+
+  mov [bx], 5 -> The assembler will trigger the Type Override alert since '5' can be in db, dw and dd.
+  				 The solution is to define to the assembler how much bytes to allocate for the value:
+
+  				 mov [byte ptr bx], 5	->	00000101 [8 bit]
+  				 -- OR --
+  				 mov [word ptr bx], 5	->	0000000000000101 [16 bit]
+
+----------------------------------------------------------------
+
+* Common Mistake with 'mov'
+
+	-	The source and destination registries sizes are not the same.
+		For example: 
+			1. mov al, bx
+			2. mov ax, bl
+
+	-	Trying to input a constant into a Data Segment;
+		For example:
+			1. mov ds, 1234h 	->  The solution is to input two commands;
+									mov ax, 1234h
+									mov ds, ax
+
+	- 	Directly copying a value in a variable in the memory to another varaible in the memory.
+		For example:
+			1. mov [var1], [var2]	->	The solution is to input two commands;
+										mov ax, [var2]
+										mov [var1], ax
+
+	-	Trying to access the wrong registry's value.
+		For example:
+			1. mov [ax], 5
+
+	- 	Copying a value to an undefined memory size.
+		For example:
+			1. mov [bx], 5	-> View the Type Override error for more details.
+
+	-	Trying to copy a register to a constant.
+		For example:
+			1. mov 5, ax
+
+----------------------------------------------------------------
+
+ * An example to how a code can be change during the time that it's runing-
+   When we address a memory space we can use either:
+   
+   mov [1], al
+   -- OR -- (Same functionality)
+   mov [ds:1], al
+
+   In order to access a certain location in the memory.
+   But we can also use:
+
+   mov [cs:1], al 
+
+   Which basically opens the option of editing the Code Segment (Inputing new/other commands) according to our needs.
+
+----------------------------------------------------------------
+
+* When dealing with stacks, before inputing data to a stack the value of 'sp' is going down.
+  On the contrary, after pulling data from a stack, the value of 'sp' rises.
+
+----------------------------------------------------------------
+
+* When we would like to use parameters for passing data to a function, we have 3 options;
+
+
+	1. Using general registers;
+
+		In this method we will assign set a register as parameter, basically, the register can get a diffrent value with each run of the function;
+
+			proc ZeroMemory
+				mov cx, ax		;	'ax' holds the number of bytes that should become zero.
+				xor al, al
+			ZeroLoop:
+				mov [bx], al
+				inc bx
+				loop ZeroLoop
+				ret
+			endp ZeroMemory 
+
+		-	The limits off this method is that you are limited to the amount of existing registers you can ffor this method ('ax', 'bx', 'cx', 'dx').
+		-	The second limitation is that the writer must be familliar with the code in order to know to which purpose each reegister was used.
+
+
+	2. Variables defined in DATASEG;
+
+		In this method we remove the limitation of using registers, enabling us to use as many variables as we need;
+
+			proc ZeroMemory
+				mov cx, [NumOfZeroBytes]		;	NumOfZeroBytes is defined in DATASEG
+				xor la, la
+			ZeroLoop:
+				mov bx, [MemoryStart]			;	MemoryStart is defined in DATASEG
+				mov [bx], al
+				inc [MemoryStart]
+				loop ZeroLoop
+				ret
+			endp
+
+		-	Again, the bennefit of this method is that we are "releasing" registers that were supposed to be used in parameters.
+		-	The limitation of this method is that the names of the variables are fixed, making it difficult to share the code with other sources.
+			A matter that can cause duplicates in the variable names between two sets off code.
+
+
+	3. Passing parameters via a STACK;
+
+		In this method we remove the limitations of using registers or variables as parameters, this is also the preferred method.
+		There are two options for this method;
+
+			3.1. Pass By Value
+
+				The parameter is passed through the stack, a copy of it is created in the stack.
+				The funnction doesn't have access to the original memory address of the parameter, only to the one in the stack- Enabling the funnction the use the parameter in which ever manner we need.
+				The value of the parameter on the stack will not change after the function is done.
+
+			3.2. Pass By Refrence
+
+				The memory address of the parameter is being assigned with a memory space in the stack.
+				The function doesn't have access to the parameter value but it has access to its memory address and therfore, it can change its value.
+				When the function ends ('ret') and depending on the function's purpose, the value of the parameter may change.
+				If we have more then 1 DATASEG in our code, we'll need to refer to it inn our code for the parameter:
+
+					push seg parameter 		;	Copy the SEGMENT of "parameter" into the stack.	
+
+----------------------------------------------------------------
+
+* 	Using the 'bp' register, it enables us to not need to 'push' and 'pop' the 'ip' register when dealing with a stack.
+	It enables us to call the parameter we need from the stack without "touching" the 'ip' register.
+
+		proc SimpleProc
+			push bp
+			mov bp, sp
+
+			....			;	Code of the stuuf the procedure does.
+
+			pop bp
+			ret 6
+		endp SimpleProc
+
+	The benefits of using 'bp';
+
+		1. In the begining of the function you don't need to use => pop ip 	In order to save the the memory address to return to.
+		2. You don't need to use 'pop' in order to access all the values in the stack, you simply call them, using 'bp' as the "base"; 
+
+				add ax, [bp+8] 	; [bp+8] = i
+
+		3. Each memory space in a stack can be represented by a variable (Label).
+		4. 'bp' help us in accessing local variables and values in a stack.
+
+----------------------------------------------------------------
+
+*	Buffer Overflow - The act of trying to add a size of data that's bigger then the space avilable in the data unit we wish to use (Array, register, memory, etc).
+	If the overflow of data happened for a stack, the term will be "Stack Overflow".
+	-	You can check the example from the file, starting page 188.
+
+----------------------------------------------------------------
+
+* Calling conventions for functions;
+
+	- Caller - The value/variable/parameter we want to use with the function.
+	- Callee - The function that's being called and we want to use.
+
+		What can go wrong between the two:
+
+			1.	The call are not in sync due to the order of the parameters we wish to use, "pass left to right" OR "pass right to left".
+				Foe example; How would we call- 
+
+				int c = MyProc(1, 2)
+
+					Using "pass left to right"
+
+						push 1
+						push 2
+						call MyProc
+
+					Using "pass right to left"
+
+						push 2
+						push 1
+						call MyProc
+
+			2.	Usually the function will return the expected value using a register, if the caller and callee are not in sync on the used register, errors will occur.
+			3.	If a stack was used for a function, we'll need to decide who's responsible for cleaning the stack once the function is done.
+				The Callee will clean the stack by using the 'ret' command and a constant.
+				The Caller will clean the stack after the funcrion ended.
+				-	Using the Caller as the closer of the stack may enable us to use non-fixed number of parameters to be sent to the relevant function.
+				-	Using the Callee as the closer of the stack may enable us to spare one command line, which may cause an improvment in processing time if the functions is being used nuemerous times.
+			4.  More on calling conventions: 
+				-	https://en.wikipedia.org/wiki/X86_calling_conventions
+				-	https://www.codeproject.com/Articles/1388/Calling-Conventions-Demystified
+
+----------------------------------------------------------------
+
+* LUT - Look Up Table, a set of inputs and correlating outputs. Can be used whenn we want to encrypt our code, each index will contain a "part" of the encryption mechannisem.
+		The table is basically a set of commands dedicated to a certain purpose.
+
+----------------------------------------------------------------
+
+* Interrupts
+
+	A signal that's being sent inn the processor, it's used to change the functionality of a command without using a conditional command.
+	In 80x86 there are 3 types on Interrupts;
+
+
+
+		1. Traps (Program)- A part of the code, they are being set by the programmer.
+			-	Can be a good solution instead of creating a function.
+			-	How to write an ISR? (Hello Wrold example);
+
+					proc SimpleSR far
+						push dx
+						push ds
+						mov dx, offset message
+						push seg message
+						pop ds
+						mov ah, 9h
+						int 21h
+						pop ds
+						pop dx
+						iret
+						message db 'Hello World$'
+					endp SimpleSR
+
+			- 	How to put the ISR in the Interrupt Vecotr Table (IVT)?
+				We will always strive to position our ISR in a free spave in the IVT.
+				In this case, we'll put our ISR in the last place in the IVT, position 255 -> 0FFh;
+
+					mov al, 0FFh				;	The ISR will be placed as number 255 in the IVT.
+					mov ah, 25h					;	Code for 'int 21h'.
+					mov dx, offset SimpleSR		;	'dx' should hold the offset of ISR.
+					push seg SimpleSR
+					pop ds 						;	'ds' should hole the segment of the ISR.
+					int 21h
+
+			- The full code for "Hello World";
+
+					IDEAL
+					MODEL small
+					STACK 100h
+					DATASEG
+
+					CODESEG
+						proc SimpleSR far
+							push dx
+							push ds
+							mov dx, offset message
+							push seg message
+							pop ds
+							mov ah, 9h
+							int 21h
+							pop ds
+							pop dx
+							iret
+							message db 'Hello World$'
+						endp SimpleSR
+					start:
+						mov ax, @data
+						mov ds, ax
+										;	From here -> Plants SimpleSR into IVT, int 0FFh.
+						mov al, 0FFh
+						mov ah, 25h
+						mov dx, offset SimpleSR
+						push seg SimpleSR
+						pop ds
+						int 21h
+										;	From here -> Call SimpleSR
+						int 0FFh
+					exit: 
+						mov ax, 4C00h
+						int 21h
+					END start
+
+
+
+		2. Exceptions (Exception)- Will automatically occur as response to an abnormal behaviour- Like dividing a value by 0 ('int 0h').
+			-	Located at the begining of the Interrupt Vector Table (IVT).
+			-	The assembler will let you compille the program since the writing is legitimate but when runing the code, the Exception Interrupt will trigger.
+			-	The Exception Interrupt is also used when we run the debugger, triggering after each line of code ('int 1h').
+
+
+
+		3. Interrupts (Hardware)- This will occur in result to an outsource hardware that are connnecting to the processor- The processor will stop running the code and tend to the connecting 
+								  hardware before continnuing running the code. 
+
+			-	When an hardware is connecting/connected to the computer, an electric signal is being sent to the processor- "Telling" it to stop its current run and to execute an ISR code that's meant
+				to handle the hardware's request.
+
+			-	Poliing - Another method other then Hardware Interrupt (Not usually used or recommended), for each pre-determined timeframe, the processor will ask 
+						  all of the connected hardwares if they have new data to share.
+
+						  *	The Polling system is simple.
+						  * The bad side is that the hardware need to wait untill it receives a request for data.
+						  * Shorter data checks cycles may be set, but the act allocates more of the processor resources to our program, reducing efficiency.
+
+
+
+	- Disable Interrupts - When the interrupt and trap flags are set to 0, this prevents from other interrupts to disturb the running of the current interrupt.
+	- Enable Interrupts - After the ISR is done, the interrupt flag (if) is set again to 1. Meaning that other interrupts can start runing.
+
+	- In ISR we have the 'iret' command which acts similarly to 'ret', but in addition, it's also do and additional 'pop' in order to also restore how the flags were set.
+	- The Interrupt Vector Table (IVT) is used to locate the memory address of the ISR we wish to call;
+		- A site contains all the options avilabe using "int 21h" that represents actions that we can do in relation to the OS - http://spike.scu.edu.au/~barry/interrupts.html
+		  In addition to "int 21h" we'll also need to assign 'ah' with a value, indicating on the function we want to use.
+
+	- The Programmable Interrupt Controller (PIC) is a piece of (Chip) that's requireed for using Interrupts. 
+	  PIC determines the order of execution priority between Interrupts.
+
+----------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
